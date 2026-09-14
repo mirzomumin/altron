@@ -47,6 +47,12 @@ class UserSession(BaseModel):
         index=True,
     )
 
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
     last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
     )

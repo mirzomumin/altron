@@ -13,6 +13,22 @@ if TYPE_CHECKING:
 class User(BaseModel):
     __tablename__ = "users"
 
+    first_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    last_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    surname: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        default="",
+    )
+
     username: Mapped[str] = mapped_column(
         String(255),
         unique=True,
