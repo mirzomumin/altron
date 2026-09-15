@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     SESSION_COOKIE_NAME: str = "session_id"
-    SESSION_EXPIRE_SECONDS: int = 60 * 60 * 24 * 7
+    SESSION_EXPIRE_SECONDS: int = 60 * 60 * 24 * 7 # 7 days
 
     COOKIE_SECURE: bool = True
     COOKIE_HTTP_ONLY: bool = True
