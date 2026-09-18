@@ -6,8 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import BaseModel
 
 if TYPE_CHECKING:
-    from src.models import Role
-    from src.models import UserSession
+    from src.models import Role, UserSession
 
 
 class User(BaseModel):
@@ -23,7 +22,7 @@ class User(BaseModel):
         nullable=False,
     )
 
-    surname: Mapped[str] = mapped_column(
+    patronymic: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         default="",
@@ -47,13 +46,13 @@ class User(BaseModel):
         nullable=False,
     )
 
-    roles: Mapped[list["Role"]] = relationship(
+    roles: Mapped[list[Role]] = relationship(
         secondary="user_roles",
         back_populates="users",
         lazy="raise_on_sql",
     )
 
-    sessions: Mapped[list["UserSession"]] = relationship(
+    sessions: Mapped[list[UserSession]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -63,7 +62,5 @@ class User(BaseModel):
     @property
     def permission_codes(self) -> set[str]:
         return {
-            permission.code
-            for role in self.roles
-            for permission in role.permissions
+            permission.code for role in self.roles for permission in role.permissions
         }

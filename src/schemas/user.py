@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
@@ -14,7 +15,7 @@ class LoginResponse(BaseModel):
 class CreateUserRequest(BaseModel):
     first_name: str = Field(..., max_length=255, title="John")
     last_name: str = Field(..., max_length=255, title="Doe")
-    surname: str | None = Field(default="", title="Hermanson")
+    patronymic: str | None = Field(default="", title="Hermanson")
 
 
 class CreateUserResponse(BaseModel):
@@ -27,5 +28,5 @@ class GetUserListResponse(BaseModel):
     username: str
     first_name: str
     last_name: str
-    surname: str
+    patronymic: str
     is_active: bool

@@ -1,9 +1,9 @@
 import hashlib
+import re
 import secrets
 import string
-import re
-from pwdlib import PasswordHash
 
+from pwdlib import PasswordHash
 
 password_hash = PasswordHash.recommended()
 
@@ -14,10 +14,7 @@ def generate_password(length: int = 16) -> str:
 
     characters = string.ascii_letters + string.digits + string.punctuation
 
-    return "".join(
-        secrets.choice(characters)
-        for _ in range(length)
-    )
+    return "".join(secrets.choice(characters) for _ in range(length))
 
 
 def hash_password(password: str) -> str:
@@ -39,15 +36,13 @@ def generate_session_id() -> str:
 
 
 def hash_session_id(session_id: str) -> str:
-    return hashlib.sha256(
-        session_id.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()
 
 
 def generate_username(
     first_name: str,
     last_name: str,
-    surname: str,
+    patronymic: str,
 ) -> str:
     def normalize(value: str) -> str:
         value = value.strip().lower()
@@ -56,11 +51,11 @@ def generate_username(
 
     first_name = normalize(first_name)
     last_name = normalize(last_name)
-    surname = normalize(surname)
+    patronymic = normalize(patronymic)
 
     # Preferred format
     username = f"{first_name}-{last_name}"
-    if surname:
-        username = f"{username}-{surname}"
+    if patronymic:
+        username = f"{username}-{patronymic}"
 
     return username

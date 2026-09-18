@@ -1,0 +1,31 @@
+from sqlalchemy import and_, insert, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql._typing import _ColumnExpressionArgument
+
+from src.models.user import User
+
+
+class UserRepository:
+    @staticmethod
+    async def add(db: AsyncSession, values: dict) -> User:
+        stmt = insert(User).values(**values).returning(User)
+        result = await db.execute(stmt)
+        return result.scalar_one()
+
+    @staticmethod
+    async def get_by_username(db: AsyncSession, username: str) -> User:
+        stmt = select(User).where(User.username == username)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def list(
+        db: AsyncSession,
+        filters: list[_ColumnExpressionArgument[bool]] | None,
+    ) -> list[User]:
+        if filters is None:
+            filters = []
+
+        query = select(User).where(and_(*filters))
+        result = await db.execute(query)
+        return result.scalars().all()
