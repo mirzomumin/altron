@@ -27,13 +27,13 @@ router = APIRouter(
 async def login(
     data: LoginRequest,
     db: SessionDep,
+    response: Response,
 ) -> LoginResponse:
     session_id, session = await UserService.login(
         data,
         db,
     )
 
-    response = Response()
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=session_id,

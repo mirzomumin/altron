@@ -6,16 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import settings
 from src.core.security import hash_session_id
 from src.models import UserSession
+from tests.factories import DEFAULT_PASSWORD, UserFactory
 
 URL = "/api/v1/users/login"
-PASSWORD = "s3cret-password"
+PASSWORD = DEFAULT_PASSWORD
 
 
 async def test_login_succeeds_with_valid_credentials(
     client: AsyncClient,
-    make_user,
+    user_factory: type[UserFactory],
 ) -> None:
-    await make_user(username="john-doe", password=PASSWORD)
+    await user_factory.create(username="john-doe", password=PASSWORD)
 
     response = await client.post(
         URL,
@@ -29,9 +30,9 @@ async def test_login_succeeds_with_valid_credentials(
 async def test_login_stores_hashed_session_for_the_user(
     client: AsyncClient,
     db: AsyncSession,
-    make_user,
+    user_factory: type[UserFactory],
 ) -> None:
-    user = await make_user(username="john-doe", password=PASSWORD)
+    user = await user_factory.create(username="john-doe", password=PASSWORD)
 
     await client.post(URL, json={"username": "john-doe", "password": PASSWORD})
 
@@ -42,17 +43,12 @@ async def test_login_stores_hashed_session_for_the_user(
     assert session.expires_at is not None
 
 
-@pytest.mark.xfail(
-    reason="login() builds a local Response(), sets the cookie on it and then "
-    "returns a dict, so the Set-Cookie header never reaches the client",
-    strict=True,
-)
 async def test_login_sets_session_cookie(
     client: AsyncClient,
     db: AsyncSession,
-    make_user,
+    user_factory: type[UserFactory],
 ) -> None:
-    await make_user(username="john-doe", password=PASSWORD)
+    await user_factory.create(username="john-doe", password=PASSWORD)
 
     response = await client.post(
         URL,
@@ -72,9 +68,9 @@ async def test_login_sets_session_cookie(
 
 async def test_login_rejects_wrong_password(
     client: AsyncClient,
-    make_user,
+    user_factory: type[UserFactory],
 ) -> None:
-    await make_user(username="john-doe", password=PASSWORD)
+    await user_factory.create(username="john-doe", password=PASSWORD)
 
     response = await client.post(
         URL,
@@ -88,20 +84,15 @@ async def test_login_rejects_wrong_password(
 async def test_login_creates_no_session_for_wrong_password(
     client: AsyncClient,
     db: AsyncSession,
-    make_user,
+    user_factory: type[UserFactory],
 ) -> None:
-    await make_user(username="john-doe", password=PASSWORD)
+    await user_factory.create(username="john-doe", password=PASSWORD)
 
     await client.post(URL, json={"username": "john-doe", "password": "nope"})
 
     assert await db.scalar(select(func.count()).select_from(UserSession)) == 0
 
 
-@pytest.mark.xfail(
-    reason="UserService.login calls verify_password(...) before the `user is None` "
-    "check, so an unknown username raises AttributeError instead of 401",
-    strict=True,
-)
 async def test_login_rejects_unknown_username(client: AsyncClient) -> None:
     response = await client.post(
         URL,
@@ -113,9 +104,9 @@ async def test_login_rejects_unknown_username(client: AsyncClient) -> None:
 
 async def test_login_rejects_inactive_user(
     client: AsyncClient,
-    make_user,
+    user_factory: type[UserFactory],
 ) -> None:
-    await make_user(username="john-doe", password=PASSWORD, is_active=False)
+    await user_factory.create(username="john-doe", password=PASSWORD, is_active=False)
 
     response = await client.post(
         URL,

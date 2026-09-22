@@ -39,13 +39,13 @@ class GetUserListResponse(BaseModel):
 class PermissionResponse(BaseModel):
     id: UUID
     code: str
-    description: str
+    description: str | None
 
 
 class Role(BaseModel):
     id: UUID
     name: str
-    description: str
+    description: str | None
     is_default: bool
     permissions: list[PermissionResponse]
 

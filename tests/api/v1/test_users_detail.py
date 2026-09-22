@@ -1,13 +1,16 @@
 from uuid import uuid4
 
-import pytest
 from httpx import AsyncClient
+
+from tests.factories import PermissionFactory, RoleFactory, UserFactory
 
 URL = "/api/v1/users"
 
 
-async def test_detail_returns_the_user(client: AsyncClient, make_user) -> None:
-    user = await make_user(username="john-doe", patronymic="Hermanson")
+async def test_detail_returns_the_user(
+    client: AsyncClient, user_factory: type[UserFactory]
+) -> None:
+    user = await user_factory.create(username="john-doe", patronymic="Hermanson")
 
     response = await client.get(f"{URL}/{user.id}")
 
@@ -21,14 +24,18 @@ async def test_detail_returns_the_user(client: AsyncClient, make_user) -> None:
 
 async def test_detail_includes_roles_and_permissions(
     client: AsyncClient,
-    make_user,
-    make_role,
+    user_factory: type[UserFactory],
+    role_factory: type[RoleFactory],
+    permission_factory: type[PermissionFactory],
 ) -> None:
-    role = await make_role(
+    role = await role_factory.create(
         name="admin",
-        permissions=["user:read", "user:create"],
+        permissions=[
+            await permission_factory.create(code="user:read"),
+            await permission_factory.create(code="user:create"),
+        ],
     )
-    user = await make_user(username="john-doe", roles=[role])
+    user = await user_factory.create(username="john-doe", roles=[role])
 
     response = await client.get(f"{URL}/{user.id}")
 
@@ -48,29 +55,19 @@ async def test_detail_rejects_malformed_id(client: AsyncClient) -> None:
     assert response.status_code == 422
 
 
-@pytest.mark.xfail(
-    reason="UserService.get returns None for a missing user, which fails response "
-    "validation instead of returning 404",
-    strict=True,
-)
 async def test_detail_returns_404_for_unknown_id(client: AsyncClient) -> None:
     response = await client.get(f"{URL}/{uuid4()}")
 
     assert response.status_code == 404
 
 
-@pytest.mark.xfail(
-    reason="Role.description and Permission.description are nullable in the model "
-    "but typed `str` in the response schema, so a NULL description 500s",
-    strict=True,
-)
 async def test_detail_handles_role_without_description(
     client: AsyncClient,
-    make_user,
-    make_role,
+    user_factory: type[UserFactory],
+    role_factory: type[RoleFactory],
 ) -> None:
-    role = await make_role(name="admin", description=None)
-    user = await make_user(username="john-doe", roles=[role])
+    role = await role_factory.create(name="admin", description=None)
+    user = await user_factory.create(username="john-doe", roles=[role])
 
     response = await client.get(f"{URL}/{user.id}")
 

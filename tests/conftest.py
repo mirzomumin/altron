@@ -1,5 +1,5 @@
 import os
-from collections.abc import AsyncGenerator, Callable, Coroutine
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -14,11 +14,10 @@ from sqlalchemy.pool import NullPool
 
 import src.models  # registers every mapper before create_all
 from src.core.config import settings
-from src.core.security import hash_password
 from src.db.base import Base
 from src.db.session import get_db
 from src.main import app
-from src.models import Permission, Role, User
+from tests.factories import PermissionFactory, RoleFactory, UserFactory
 
 
 def _test_database_url() -> Any:
@@ -106,55 +105,23 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
         app.dependency_overrides.clear()
 
 
-UserFactory = Callable[..., Coroutine[Any, Any, User]]
+@pytest.fixture
+def _bound_factories(db: AsyncSession) -> None:
+    """Point every factory at the transaction this test runs in."""
+    for factory_class in (PermissionFactory, RoleFactory, UserFactory):
+        factory_class._meta.sqlalchemy_session = db
 
 
 @pytest.fixture
-async def make_user(db: AsyncSession) -> UserFactory:
-    async def _make_user(
-        username: str = "john-doe",
-        password: str = "s3cret-password",
-        first_name: str = "John",
-        last_name: str = "Doe",
-        patronymic: str = "",
-        is_active: bool = True,
-        roles: list[Role] | None = None,
-    ) -> User:
-        user = User(
-            username=username,
-            password_hash=hash_password(password),
-            first_name=first_name,
-            last_name=last_name,
-            patronymic=patronymic,
-            is_active=is_active,
-            roles=roles or [],
-        )
-        db.add(user)
-        await db.commit()
-        return user
-
-    return _make_user
+def permission_factory(_bound_factories: None) -> type[PermissionFactory]:
+    return PermissionFactory
 
 
 @pytest.fixture
-async def make_role(db: AsyncSession) -> Callable[..., Coroutine[Any, Any, Role]]:
-    async def _make_role(
-        name: str = "admin",
-        description: str = "Administrator",
-        is_default: bool = False,
-        permissions: list[str] | None = None,
-    ) -> Role:
-        role = Role(
-            name=name,
-            description=description,
-            is_default=is_default,
-            permissions=[
-                Permission(code=code, description=f"Can {code}")
-                for code in (permissions or [])
-            ],
-        )
-        db.add(role)
-        await db.commit()
-        return role
+def role_factory(_bound_factories: None) -> type[RoleFactory]:
+    return RoleFactory
 
-    return _make_role
+
+@pytest.fixture
+def user_factory(_bound_factories: None) -> type[UserFactory]:
+    return UserFactory

@@ -85,11 +85,6 @@ async def test_create_rejects_invalid_payload(
     assert response.status_code == 422
 
 
-@pytest.mark.xfail(
-    reason="Duplicate names hit the unique index on users.username and surface "
-    "as an unhandled IntegrityError instead of a 409",
-    strict=True,
-)
 async def test_create_duplicate_names_returns_conflict(client: AsyncClient) -> None:
     payload = {"first_name": "John", "last_name": "Doe"}
     await client.post(URL, json=payload)

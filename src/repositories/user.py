@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import and_, insert, select
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql._typing import _ColumnExpressionArgument
@@ -37,9 +37,6 @@ class UserRepository:
         db: AsyncSession,
         filters: list[_ColumnExpressionArgument[bool]] | None = None,
     ) -> list[User]:
-        if filters is None:
-            filters = []
-
-        query = select(User).where(and_(*filters))
+        query = select(User).where(*(filters or []))
         result = await db.execute(query)
         return result.scalars().all()
