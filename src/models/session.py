@@ -1,6 +1,6 @@
 from datetime import datetime
-from uuid import UUID
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from sqlalchemy import (
     DateTime,
@@ -15,7 +15,6 @@ from sqlalchemy.orm import (
 )
 
 from src.db.base import BaseModel
-
 
 if TYPE_CHECKING:
     from src.models import User
@@ -57,6 +56,6 @@ class UserSession(BaseModel):
         DateTime(timezone=True),
     )
 
-    user: Mapped["User"] = relationship(
+    user: Mapped[User] = relationship(
         back_populates="sessions",
     )

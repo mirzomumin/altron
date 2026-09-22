@@ -1,7 +1,10 @@
+from uuid import UUID
+
 from fastapi import (
     HTTPException,
     status,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import (
@@ -24,9 +27,8 @@ class UserService:
         db: AsyncSession,
     ) -> tuple[str, UserSession]:
         user = await UserRepository.get_by_username(db, data.username)
-        is_pass_verified = verify_password(data.password, user.password_hash)
 
-        if user is None or not is_pass_verified:
+        if user is None or not verify_password(data.password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -57,10 +59,30 @@ class UserService:
             "patronymic": data.patronymic,
         }
 
-        await UserRepository.add(db, user_data)
-        await db.commit()
+        try:
+            await UserRepository.add(db, user_data)
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User '{username}' already exists",
+            ) from None
+
         return {"username": username, "password": password}
 
     @staticmethod
     async def list(db: AsyncSession) -> list[User]:
         return await UserRepository.list(db)
+
+    @staticmethod
+    async def get(id: UUID, db: AsyncSession) -> User:
+        user = await UserRepository.get_by_id(id, db)
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        return user
