@@ -1,21 +1,21 @@
+from uuid import UUID
+
 from fastapi import (
     APIRouter,
-    Depends,
     Response,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
-from src.db.session import get_db
+from src.db.session import SessionDep
 from src.schemas.user import (
-    LoginRequest,
-    LoginResponse,
     CreateUserRequest,
     CreateUserResponse,
+    GetUserDetailResponse,
     GetUserListResponse,
+    LoginRequest,
+    LoginResponse,
 )
 from src.services.user import UserService
-
 
 router = APIRouter(
     prefix="/users",
@@ -26,7 +26,7 @@ router = APIRouter(
 @router.post("/login")
 async def login(
     data: LoginRequest,
-    db: AsyncSession = Depends(get_db),
+    db: SessionDep,
 ) -> LoginResponse:
     session_id, session = await UserService.login(
         data,
@@ -53,14 +53,23 @@ async def login(
 @router.post("")
 async def create_user(
     data: CreateUserRequest,
-    db: AsyncSession = Depends(get_db),
+    db: SessionDep,
 ) -> CreateUserResponse:
     return await UserService.create(data, db)
 
 
 @router.get("")
 async def get_user_list(
-    db: AsyncSession = Depends(get_db),
+    db: SessionDep,
 ) -> list[GetUserListResponse]:
     result = await UserService.list(db)
+    return result
+
+
+@router.get("/{id}")
+async def get_user_detail(
+    id: UUID,
+    db: SessionDep,
+) -> GetUserDetailResponse:
+    result = await UserService.get(id, db)
     return result

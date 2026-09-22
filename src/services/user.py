@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import (
     HTTPException,
     status,
@@ -64,3 +66,7 @@ class UserService:
     @staticmethod
     async def list(db: AsyncSession) -> list[User]:
         return await UserRepository.list(db)
+
+    @staticmethod
+    async def get(id: UUID, db: AsyncSession) -> User:
+        return await UserRepository.get_by_id(id, db)
