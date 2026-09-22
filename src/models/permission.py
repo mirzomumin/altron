@@ -9,7 +9,6 @@ from sqlalchemy.orm import (
 
 from src.db.base import BaseModel
 
-
 if TYPE_CHECKING:
     from src.models import Role
 
@@ -28,7 +27,7 @@ class Permission(BaseModel):
         String(255),
     )
 
-    roles: Mapped[list["Role"]] = relationship(
+    roles: Mapped[list[Role]] = relationship(
         secondary="role_permissions",
         back_populates="permissions",
     )

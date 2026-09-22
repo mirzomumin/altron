@@ -1,9 +1,9 @@
 from datetime import datetime
 from uuid import UUID, uuid7
+
 from sqlalchemy import DateTime, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
