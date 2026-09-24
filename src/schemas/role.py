@@ -24,3 +24,12 @@ class CreateRoleResponse(CreateRoleRequest):
     id: UUID
     is_default: bool
     permissions: list[PermissionResponse]
+
+
+################### Update Role ############################
+class UpdateRoleRequest(CreateRoleRequest):
+    pass
+
+
+class UpdateRoleResponse(CreateRoleResponse):
+    pass
