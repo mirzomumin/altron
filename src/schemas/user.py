@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.schemas.role import CreateRoleResponse
+
 
 ################# Login ######################
 class LoginRequest(BaseModel):
@@ -36,19 +38,5 @@ class GetUserListResponse(BaseModel):
 
 
 ############## Get User Detail ################
-class PermissionResponse(BaseModel):
-    id: UUID
-    code: str
-    description: str | None
-
-
-class Role(BaseModel):
-    id: UUID
-    name: str
-    description: str | None
-    is_default: bool
-    permissions: list[PermissionResponse]
-
-
 class GetUserDetailResponse(GetUserListResponse):
-    roles: list[Role]
+    roles: list[CreateRoleResponse]

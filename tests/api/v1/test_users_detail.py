@@ -66,7 +66,7 @@ async def test_detail_handles_role_without_description(
     user_factory: type[UserFactory],
     role_factory: type[RoleFactory],
 ) -> None:
-    role = await role_factory.create(name="admin", description=None)
+    role = await role_factory.create(name="admin", description="")
     user = await user_factory.create(username="john-doe", roles=[role])
 
     response = await client.get(f"{URL}/{user.id}")
