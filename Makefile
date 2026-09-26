@@ -6,3 +6,6 @@ test:
 
 test-cov:
 	uv run pytest --cov=src --cov-report=term-missing
+
+db:
+	docker compose up -d
