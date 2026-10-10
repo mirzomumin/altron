@@ -16,7 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import BaseModel
 
 if TYPE_CHECKING:
-    from src.models import Customer, Role, UserSession
+    from src.models import Application, Customer, Role, UserSession
 
 
 class UserPosition(str, Enum):
@@ -99,7 +99,7 @@ class User(BaseModel):
         lazy="raise_on_sql",
     )
 
-    applications: Mapped[list[User]] = relationship(
+    applications: Mapped[list[Application]] = relationship(
         secondary="submissions",
         back_populates="submitters",
         lazy="raise_on_sql",

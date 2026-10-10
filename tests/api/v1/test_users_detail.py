@@ -20,6 +20,12 @@ async def test_detail_returns_the_user(
     assert body["username"] == "john-doe"
     assert body["patronymic"] == "Hermanson"
     assert body["roles"] == []
+    assert body["position"] == "specialist"
+    assert body["customer_id"] == str(user.customer_id)
+    assert body["customer"] == {
+        "id": str(user.customer_id),
+        "name": user.customer.name,
+    }
 
 
 async def test_detail_includes_roles_and_permissions(

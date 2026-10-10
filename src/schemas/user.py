@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.models.user import UserPosition
+from src.schemas.customer import CustomerResponse
 from src.schemas.role import CreateRoleResponse
 
 
@@ -20,6 +22,8 @@ class CreateUserRequest(BaseModel):
     first_name: str = Field(..., max_length=255, title="John")
     last_name: str = Field(..., max_length=255, title="Doe")
     patronymic: str | None = Field(default="", title="Hermanson")
+    position: UserPosition = UserPosition.SPECIALIST
+    customer_id: UUID
 
 
 class CreateUserResponse(BaseModel):
@@ -35,8 +39,11 @@ class GetUserListResponse(BaseModel):
     last_name: str
     patronymic: str
     is_active: bool
+    position: UserPosition
+    customer_id: UUID
 
 
 ############## Get User Detail ################
 class GetUserDetailResponse(GetUserListResponse):
+    customer: CustomerResponse
     roles: list[CreateRoleResponse]

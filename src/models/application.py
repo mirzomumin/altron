@@ -23,7 +23,7 @@ from sqlalchemy.orm import (
 from src.db.base import BaseModel
 
 if TYPE_CHECKING:
-    from src.models import Application, Customer, User
+    from src.models import Customer, User
 
 
 submissions = Table(

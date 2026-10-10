@@ -15,6 +15,14 @@ PERMISSION_DESCRIPTIONS = {
     PermissionCode.ROLE_CREATE: "Create roles",
     PermissionCode.ROLE_UPDATE: "Update roles",
     PermissionCode.ROLE_DELETE: "Delete roles",
+    PermissionCode.CUSTOMER_READ: "Read customers",
+    PermissionCode.CUSTOMER_CREATE: "Create customers",
+    PermissionCode.CUSTOMER_UPDATE: "Update customers",
+    PermissionCode.CUSTOMER_DELETE: "Delete customers",
+    PermissionCode.APPLICATION_READ: "Read applications",
+    PermissionCode.APPLICATION_CREATE: "Create applications",
+    PermissionCode.APPLICATION_UPDATE: "Update applications",
+    PermissionCode.APPLICATION_DELETE: "Delete applications",
 }
 
 

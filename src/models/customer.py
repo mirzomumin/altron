@@ -23,7 +23,7 @@ class Customer(BaseModel):
         index=True,
     )
 
-    applications: Mapped[list[Customer]] = relationship(
+    applications: Mapped[list[Application]] = relationship(
         back_populates="customer",
         cascade="all, delete-orphan",
         passive_deletes=True,

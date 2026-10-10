@@ -11,3 +11,13 @@ class Permission(StrEnum):
     ROLE_CREATE = "role:create"
     ROLE_UPDATE = "role:update"
     ROLE_DELETE = "role:delete"
+
+    CUSTOMER_READ = "customer:read"
+    CUSTOMER_CREATE = "customer:create"
+    CUSTOMER_UPDATE = "customer:update"
+    CUSTOMER_DELETE = "customer:delete"
+
+    APPLICATION_READ = "application:read"
+    APPLICATION_CREATE = "application:create"
+    APPLICATION_UPDATE = "application:update"
+    APPLICATION_DELETE = "application:delete"
