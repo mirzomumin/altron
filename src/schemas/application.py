@@ -17,7 +17,7 @@ class CreateApplicationRequest(BaseModel):
     number: str = Field(..., min_length=1, max_length=20)
     customer_id: UUID
     qty: int = Field(..., ge=1, le=32767, title="Number of preparations")
-    received_at: date
+    received_date: date
     submitters: list[Submitter] = Field(default_factory=list)
 
 
@@ -27,7 +27,7 @@ class GetApplicationListResponse(BaseModel):
     cid: int
     number: str
     qty: int
-    received_at: date
+    received_date: date
     customer: CustomerResponse
 
 

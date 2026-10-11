@@ -1,8 +1,8 @@
-"""initial migrations
+"""initial migration
 
-Revision ID: 287ca9465349
+Revision ID: 51cddd23ed70
 Revises: 
-Create Date: 2026-10-10 19:39:13.901197
+Create Date: 2026-10-12 02:03:04.195137
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '287ca9465349'
+revision: str = '51cddd23ed70'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,6 +29,15 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_customers_name'), 'customers', ['name'], unique=True)
+    op.create_table('norm_documents',
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('approved_date', sa.Date(), nullable=False),
+    sa.Column('expiry_date', sa.Date(), nullable=True),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('permissions',
     sa.Column('code', sa.String(length=100), nullable=False),
     sa.Column('description', sa.String(length=255), nullable=True),
@@ -53,7 +62,8 @@ def upgrade() -> None:
     sa.Column('number', sa.String(length=20), nullable=False),
     sa.Column('customer_id', sa.UUID(), nullable=False),
     sa.Column('qty', sa.SmallInteger(), nullable=False),
-    sa.Column('received_at', sa.Date(), nullable=False),
+    sa.Column('received_date', sa.Date(), nullable=False),
+    sa.Column('sampling_date', sa.Date(), nullable=True),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -61,6 +71,19 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_applications_customer_id'), 'applications', ['customer_id'], unique=False)
+    op.create_table('lab_tests',
+    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('method', sa.String(length=255), nullable=False),
+    sa.Column('lab_type', sa.Enum('OWN', 'SUBCONTRACTED', name='lab_type'), nullable=False),
+    sa.Column('norm_document_id', sa.UUID(), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['norm_document_id'], ['norm_documents.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('norm_document_id', 'name', name='uq_lab_tests_norm_document_id_name')
+    )
+    op.create_index(op.f('ix_lab_tests_norm_document_id'), 'lab_tests', ['norm_document_id'], unique=False)
     op.create_table('role_permissions',
     sa.Column('role_id', sa.UUID(), nullable=False),
     sa.Column('permission_id', sa.UUID(), nullable=False),
@@ -86,6 +109,38 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_users_customer_id'), 'users', ['customer_id'], unique=False)
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    op.create_table('items',
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('producer', sa.String(length=100), nullable=True),
+    sa.Column('tnved_code', sa.String(length=16), nullable=True),
+    sa.Column('series', sa.String(length=64), nullable=True),
+    sa.Column('expiry_date', sa.Date(), nullable=True),
+    sa.Column('batch_qty', sa.SmallInteger(), nullable=True),
+    sa.Column('unit', sa.String(), nullable=True),
+    sa.Column('reg_no', sa.String(length=64), nullable=True),
+    sa.Column('norm_document_id', sa.UUID(), nullable=True),
+    sa.Column('cert_scheme', sa.String(length=16), nullable=True),
+    sa.Column('unit_price', sa.Integer(), nullable=True),
+    sa.Column('is_rx', sa.Boolean(), nullable=False),
+    sa.Column('ref_price', sa.Integer(), nullable=True),
+    sa.Column('application_id', sa.UUID(), nullable=False),
+    sa.Column('seed_method', sa.Enum('STERILIZATION', 'MICROBIOLOGY', name='seed_method'), nullable=True),
+    sa.Column('seeded_at', sa.DateTime(), nullable=True),
+    sa.Column('issue_date', sa.Date(), nullable=True),
+    sa.Column('planned_protocol_date', sa.DateTime(), nullable=True),
+    sa.Column('actual_protocol_date', sa.DateTime(), nullable=True),
+    sa.Column('note', sa.String(length=255), nullable=True),
+    sa.Column('cert_number', sa.String(), nullable=True),
+    sa.Column('cert_issue_date', sa.Date(), nullable=True),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['application_id'], ['applications.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['norm_document_id'], ['norm_documents.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_items_application_id'), 'items', ['application_id'], unique=False)
+    op.create_index(op.f('ix_items_norm_document_id'), 'items', ['norm_document_id'], unique=False)
     op.create_table('submissions',
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('application_id', sa.UUID(), nullable=False),
@@ -135,17 +190,29 @@ def downgrade() -> None:
     op.drop_table('user_roles')
     op.drop_index('ix_submissions_application_id', table_name='submissions')
     op.drop_table('submissions')
+    op.drop_index(op.f('ix_items_norm_document_id'), table_name='items')
+    op.drop_index(op.f('ix_items_application_id'), table_name='items')
+    op.drop_table('items')
     op.drop_index(op.f('ix_users_username'), table_name='users')
     op.drop_index(op.f('ix_users_customer_id'), table_name='users')
     op.drop_table('users')
     op.drop_index('ix_role_permissions_permission_id', table_name='role_permissions')
     op.drop_table('role_permissions')
+    op.drop_index(op.f('ix_lab_tests_norm_document_id'), table_name='lab_tests')
+    op.drop_table('lab_tests')
     op.drop_index(op.f('ix_applications_customer_id'), table_name='applications')
     op.drop_table('applications')
     op.drop_index(op.f('ix_roles_name'), table_name='roles')
     op.drop_table('roles')
     op.drop_index(op.f('ix_permissions_code'), table_name='permissions')
     op.drop_table('permissions')
+    op.drop_table('norm_documents')
     op.drop_index(op.f('ix_customers_name'), table_name='customers')
     op.drop_table('customers')
     # ### end Alembic commands ###
+
+    # Alembic does not drop Postgres enum types created implicitly by create_table
+    bind = op.get_bind()
+    sa.Enum(name='seed_method').drop(bind, checkfirst=True)
+    sa.Enum(name='user_position').drop(bind, checkfirst=True)
+    sa.Enum(name='lab_type').drop(bind, checkfirst=True)

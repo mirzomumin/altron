@@ -69,7 +69,7 @@ class ApplicationRepository:
             select(Application)
             .options(selectinload(Application.customer))
             .where(*(filters or []))
-            .order_by(Application.received_at.desc())
+            .order_by(Application.received_date.desc())
         )
         result = await db.execute(query)
         return result.scalars().all()

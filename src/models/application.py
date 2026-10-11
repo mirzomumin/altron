@@ -23,7 +23,7 @@ from sqlalchemy.orm import (
 from src.db.base import BaseModel
 
 if TYPE_CHECKING:
-    from src.models import Customer, User
+    from src.models import Customer, Item, User
 
 
 submissions = Table(
@@ -70,8 +70,11 @@ class Application(BaseModel):
         nullable=False,
         index=True,
     )  # компания заявитель
-    qty: Mapped[int] = mapped_column(SmallInteger())  # количество препаратов
-    received_at: Mapped[date]  # дата поступления заявки (ТРИС)
+    qty: Mapped[int] = mapped_column(
+        SmallInteger()
+    )  # количество предметов (препаратов)
+    received_date: Mapped[date]  # дата поступления заявки (ТРИС)
+    sampling_date: Mapped[date | None]
 
     customer: Mapped[Customer] = relationship(
         back_populates="applications",
@@ -81,5 +84,10 @@ class Application(BaseModel):
     submitters: Mapped[list[User]] = relationship(
         secondary="submissions",
         back_populates="applications",
+        lazy="raise_on_sql",
+    )
+
+    items: Mapped[list[Item]] = relationship(
+        back_populates="application",
         lazy="raise_on_sql",
     )

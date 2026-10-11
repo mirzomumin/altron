@@ -65,5 +65,5 @@ class ApplicationFactory(BaseFactory):
     cid = factory.Sequence(lambda n: n + 1)
     number = factory.Sequence(lambda n: f"APP-{n}")
     qty = 1
-    received_at = date(2026, 1, 1)
+    received_date = date(2026, 1, 1)
     customer = factory.SubFactory(CustomerFactory)

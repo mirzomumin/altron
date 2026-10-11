@@ -24,7 +24,7 @@ def _payload(customer: Customer, **overrides) -> dict:
         "number": "A-2026-001",
         "customer_id": str(customer.id),
         "qty": 3,
-        "received_at": "2026-10-01",
+        "received_date": "2026-10-01",
         **overrides,
     }
 
@@ -49,7 +49,7 @@ async def test_create_returns_the_application(
     assert body["cid"] == 101
     assert body["number"] == "A-2026-001"
     assert body["qty"] == 3
-    assert body["received_at"] == "2026-10-01"
+    assert body["received_date"] == "2026-10-01"
     assert body["customer"] == {"id": str(customer.id), "name": "Acme"}
     assert body["submitters"] == []
 
@@ -82,7 +82,7 @@ async def test_create_returns_404_for_unknown_customer(client: AsyncClient) -> N
             "number": "A-1",
             "customer_id": str(uuid4()),
             "qty": 1,
-            "received_at": "2026-10-01",
+            "received_date": "2026-10-01",
         },
     )
 
@@ -97,7 +97,7 @@ async def test_create_returns_404_for_unknown_customer(client: AsyncClient) -> N
         pytest.param({"number": ""}, id="blank-number"),
         pytest.param({"qty": 0}, id="zero-qty"),
         pytest.param({"qty": 40000}, id="qty-overflows-smallint"),
-        pytest.param({"received_at": "not-a-date"}, id="malformed-date"),
+        pytest.param({"received_date": "not-a-date"}, id="malformed-date"),
         pytest.param({"cid": None}, id="null-cid"),
     ],
 )
@@ -114,8 +114,8 @@ async def test_list_returns_newest_first_with_customer(
     client: AsyncClient,
     application_factory: type[ApplicationFactory],
 ) -> None:
-    await application_factory.create(number="old", received_at=date(2026, 1, 1))
-    await application_factory.create(number="new", received_at=date(2026, 5, 1))
+    await application_factory.create(number="old", received_date=date(2026, 1, 1))
+    await application_factory.create(number="new", received_date=date(2026, 5, 1))
 
     response = await client.get(URL)
 
@@ -210,7 +210,7 @@ async def test_update_returns_404_for_unknown_customer(
             "number": "A-1",
             "customer_id": str(uuid4()),
             "qty": 1,
-            "received_at": "2026-10-01",
+            "received_date": "2026-10-01",
         },
     )
 
