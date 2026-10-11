@@ -14,9 +14,10 @@ from src.core.security import (
     verify_password,
 )
 from src.models.session import UserSession
-from src.models.user import User
+from src.models.user import User, UserPosition
 from src.repositories.user import UserRepository
 from src.schemas.user import CreateUserRequest, LoginRequest
+from src.services.customer import CustomerService
 from src.services.session import UserSessionService
 
 
@@ -48,6 +49,8 @@ class UserService:
         data: CreateUserRequest,
         db: AsyncSession,
     ) -> dict:
+        await CustomerService.get(data.customer_id, db)
+
         username = generate_username(data.first_name, data.last_name, data.patronymic)
         password = generate_password()
 
@@ -57,6 +60,8 @@ class UserService:
             "first_name": data.first_name,
             "last_name": data.last_name,
             "patronymic": data.patronymic,
+            "position": data.position,
+            "customer_id": data.customer_id,
         }
 
         try:
@@ -72,8 +77,17 @@ class UserService:
         return {"username": username, "password": password}
 
     @staticmethod
-    async def list(db: AsyncSession) -> list[User]:
-        return await UserRepository.list(db)
+    async def list(
+        db: AsyncSession,
+        customer_id: UUID | None = None,
+        position: UserPosition | None = None,
+    ) -> list[User]:
+        filters = []
+        if customer_id is not None:
+            filters.append(User.customer_id == customer_id)
+        if position is not None:
+            filters.append(User.position == position)
+        return await UserRepository.list(db, filters=filters)
 
     @staticmethod
     async def get(id: UUID, db: AsyncSession) -> User:

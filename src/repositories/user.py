@@ -26,7 +26,10 @@ class UserRepository:
     async def get_by_id(id: UUID, db: AsyncSession) -> User:
         stmt = (
             select(User)
-            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .options(
+                selectinload(User.customer),
+                selectinload(User.roles).selectinload(Role.permissions),
+            )
             .where(User.id == id)
         )
         result = await db.execute(stmt)

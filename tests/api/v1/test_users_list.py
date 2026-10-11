@@ -2,8 +2,9 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import User
+from src.models.user import UserPosition
 from src.repositories.user import UserRepository
-from tests.factories import UserFactory
+from tests.factories import CustomerFactory, UserFactory
 
 URL = "/api/v1/users"
 
@@ -14,6 +15,8 @@ EXPECTED_FIELDS = {
     "last_name",
     "patronymic",
     "is_active",
+    "position",
+    "customer_id",
 }
 
 
@@ -57,6 +60,50 @@ async def test_list_exposes_only_public_fields(
 
     assert set(user) == EXPECTED_FIELDS
     assert user["patronymic"] == "Hermanson"
+
+
+async def test_list_exposes_position_and_customer(
+    client: AsyncClient,
+    user_factory: type[UserFactory],
+) -> None:
+    user = await user_factory.create(username="john-doe", position=UserPosition.HEAD)
+
+    [payload] = (await client.get(URL)).json()
+
+    assert payload["position"] == "head"
+    assert payload["customer_id"] == str(user.customer_id)
+
+
+async def test_list_filters_by_customer(
+    client: AsyncClient,
+    user_factory: type[UserFactory],
+    customer_factory: type[CustomerFactory],
+) -> None:
+    acme = await customer_factory.create(name="Acme")
+    await user_factory.create(username="john-doe", customer=acme)
+    await user_factory.create(username="jane-roe")
+
+    response = await client.get(URL, params={"customer_id": str(acme.id)})
+
+    assert [user["username"] for user in response.json()] == ["john-doe"]
+
+
+async def test_list_filters_by_position(
+    client: AsyncClient,
+    user_factory: type[UserFactory],
+) -> None:
+    await user_factory.create(username="john-doe", position=UserPosition.MANAGER)
+    await user_factory.create(username="jane-roe")
+
+    response = await client.get(URL, params={"position": "manager"})
+
+    assert [user["username"] for user in response.json()] == ["john-doe"]
+
+
+async def test_list_rejects_unknown_position(client: AsyncClient) -> None:
+    response = await client.get(URL, params={"position": "janitor"})
+
+    assert response.status_code == 422
 
 
 # `UserRepository.list` accepts filters that no endpoint passes yet, so they are

@@ -1,18 +1,33 @@
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import verify_password
-from src.models import User
+from src.models import Customer, User
+from src.models.user import UserPosition
+from tests.factories import CustomerFactory
 
 URL = "/api/v1/users"
 
 
-async def test_create_returns_generated_credentials(client: AsyncClient) -> None:
+@pytest.fixture
+async def customer(customer_factory: type[CustomerFactory]) -> Customer:
+    return await customer_factory.create(name="Acme")
+
+
+async def test_create_returns_generated_credentials(
+    client: AsyncClient, customer: Customer
+) -> None:
     response = await client.post(
         URL,
-        json={"first_name": "John", "last_name": "Doe"},
+        json={
+            "first_name": "John",
+            "last_name": "Doe",
+            "customer_id": str(customer.id),
+        },
     )
 
     assert response.status_code == 200
@@ -21,23 +36,30 @@ async def test_create_returns_generated_credentials(client: AsyncClient) -> None
     assert len(body["password"]) == 16
 
 
-async def test_create_includes_patronymic_in_username(client: AsyncClient) -> None:
+async def test_create_includes_patronymic_in_username(
+    client: AsyncClient, customer: Customer
+) -> None:
     response = await client.post(
         URL,
         json={
             "first_name": "John",
             "last_name": "Doe",
             "patronymic": "Hermanson",
+            "customer_id": str(customer.id),
         },
     )
 
     assert response.json()["username"] == "john-doe-hermanson"
 
 
-async def test_create_normalizes_names(client: AsyncClient) -> None:
+async def test_create_normalizes_names(client: AsyncClient, customer: Customer) -> None:
     response = await client.post(
         URL,
-        json={"first_name": "  Ján O'Neil ", "last_name": "D'Öe"},
+        json={
+            "first_name": "  Ján O'Neil ",
+            "last_name": "D'Öe",
+            "customer_id": str(customer.id),
+        },
     )
 
     assert response.json()["username"] == "jnoneil-de"
@@ -46,10 +68,15 @@ async def test_create_normalizes_names(client: AsyncClient) -> None:
 async def test_create_persists_active_user_with_hashed_password(
     client: AsyncClient,
     db: AsyncSession,
+    customer: Customer,
 ) -> None:
     response = await client.post(
         URL,
-        json={"first_name": "John", "last_name": "Doe"},
+        json={
+            "first_name": "John",
+            "last_name": "Doe",
+            "customer_id": str(customer.id),
+        },
     )
     body = response.json()
 
@@ -59,6 +86,8 @@ async def test_create_persists_active_user_with_hashed_password(
     assert user.is_active is True
     assert user.first_name == "John"
     assert user.patronymic == ""
+    assert user.position == UserPosition.SPECIALIST
+    assert user.customer_id == customer.id
     assert user.password_hash != body["password"]
     assert verify_password(body["password"], user.password_hash)
 
@@ -70,6 +99,18 @@ async def test_create_persists_active_user_with_hashed_password(
         pytest.param({"first_name": "John"}, id="missing-last-name"),
         pytest.param({"last_name": "Doe"}, id="missing-first-name"),
         pytest.param({"first_name": "John", "last_name": None}, id="null-last-name"),
+        pytest.param(
+            {"first_name": "John", "last_name": "Doe"},
+            id="missing-customer-id",
+        ),
+        pytest.param(
+            {
+                "first_name": "John",
+                "last_name": "Doe",
+                "customer_id": "not-a-uuid",
+            },
+            id="malformed-customer-id",
+        ),
         pytest.param(
             {"first_name": "J" * 256, "last_name": "Doe"},
             id="first-name-too-long",
@@ -85,10 +126,64 @@ async def test_create_rejects_invalid_payload(
     assert response.status_code == 422
 
 
-async def test_create_duplicate_names_returns_conflict(client: AsyncClient) -> None:
-    payload = {"first_name": "John", "last_name": "Doe"}
+async def test_create_duplicate_names_returns_conflict(
+    client: AsyncClient, customer: Customer
+) -> None:
+    payload = {
+        "first_name": "John",
+        "last_name": "Doe",
+        "customer_id": str(customer.id),
+    }
     await client.post(URL, json=payload)
 
     response = await client.post(URL, json=payload)
 
     assert response.status_code == 409
+
+
+async def test_create_stores_the_given_position(
+    client: AsyncClient,
+    db: AsyncSession,
+    customer: Customer,
+) -> None:
+    response = await client.post(
+        URL,
+        json={
+            "first_name": "John",
+            "last_name": "Doe",
+            "position": "head",
+            "customer_id": str(customer.id),
+        },
+    )
+
+    assert response.status_code == 200
+    user = await db.scalar(
+        select(User).where(User.username == response.json()["username"])
+    )
+    assert user.position == UserPosition.HEAD
+
+
+async def test_create_rejects_unknown_position(
+    client: AsyncClient, customer: Customer
+) -> None:
+    response = await client.post(
+        URL,
+        json={
+            "first_name": "John",
+            "last_name": "Doe",
+            "position": "janitor",
+            "customer_id": str(customer.id),
+        },
+    )
+
+    assert response.status_code == 422
+
+
+async def test_create_returns_404_for_unknown_customer(client: AsyncClient) -> None:
+    response = await client.post(
+        URL,
+        json={"first_name": "John", "last_name": "Doe", "customer_id": str(uuid4())},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Customer not found"

@@ -17,7 +17,13 @@ from src.core.config import settings
 from src.db.base import Base
 from src.db.session import get_db
 from src.main import app
-from tests.factories import PermissionFactory, RoleFactory, UserFactory
+from tests.factories import (
+    ApplicationFactory,
+    CustomerFactory,
+    PermissionFactory,
+    RoleFactory,
+    UserFactory,
+)
 
 
 def _test_database_url() -> Any:
@@ -108,7 +114,13 @@ async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient]:
 @pytest.fixture
 def _bound_factories(db: AsyncSession) -> None:
     """Point every factory at the transaction this test runs in."""
-    for factory_class in (PermissionFactory, RoleFactory, UserFactory):
+    for factory_class in (
+        ApplicationFactory,
+        CustomerFactory,
+        PermissionFactory,
+        RoleFactory,
+        UserFactory,
+    ):
         factory_class._meta.sqlalchemy_session = db
 
 
@@ -125,3 +137,13 @@ def role_factory(_bound_factories: None) -> type[RoleFactory]:
 @pytest.fixture
 def user_factory(_bound_factories: None) -> type[UserFactory]:
     return UserFactory
+
+
+@pytest.fixture
+def customer_factory(_bound_factories: None) -> type[CustomerFactory]:
+    return CustomerFactory
+
+
+@pytest.fixture
+def application_factory(_bound_factories: None) -> type[ApplicationFactory]:
+    return ApplicationFactory

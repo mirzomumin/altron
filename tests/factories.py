@@ -1,8 +1,10 @@
+from datetime import date
+
 import factory
 from async_factory_boy.factory.sqlalchemy import AsyncSQLAlchemyFactory
 
 from src.core.security import generate_username, hash_password
-from src.models import Permission, Role, User
+from src.models import Application, Customer, Permission, Role, User
 
 DEFAULT_PASSWORD = "s3cret-password"
 
@@ -19,6 +21,13 @@ class PermissionFactory(BaseFactory):
 
     code = factory.Sequence(lambda n: f"resource:action-{n}")
     description = factory.LazyAttribute(lambda obj: f"Can {obj.code}")
+
+
+class CustomerFactory(BaseFactory):
+    class Meta:
+        model = Customer
+
+    name = factory.Sequence(lambda n: f"Customer {n}")
 
 
 class RoleFactory(BaseFactory):
@@ -46,3 +55,15 @@ class UserFactory(BaseFactory):
     )
     password_hash = factory.LazyAttribute(lambda obj: hash_password(obj.password))
     is_active = True
+    customer = factory.SubFactory(CustomerFactory)
+
+
+class ApplicationFactory(BaseFactory):
+    class Meta:
+        model = Application
+
+    cid = factory.Sequence(lambda n: n + 1)
+    number = factory.Sequence(lambda n: f"APP-{n}")
+    qty = 1
+    received_at = date(2026, 1, 1)
+    customer = factory.SubFactory(CustomerFactory)

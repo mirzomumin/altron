@@ -7,6 +7,7 @@ from fastapi import (
 
 from src.core.config import settings
 from src.db.session import SessionDep
+from src.models.user import UserPosition
 from src.schemas.user import (
     CreateUserRequest,
     CreateUserResponse,
@@ -61,8 +62,10 @@ async def create_user(
 @router.get("")
 async def get_user_list(
     db: SessionDep,
+    customer_id: UUID | None = None,
+    position: UserPosition | None = None,
 ) -> list[GetUserListResponse]:
-    result = await UserService.list(db)
+    result = await UserService.list(db, customer_id, position)
     return result
 
 
