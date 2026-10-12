@@ -1,7 +1,9 @@
 # Altron
 
-A FastAPI service with cookie-based session authentication and a role/permission
-model, built on async SQLAlchemy + PostgreSQL.
+A FastAPI service for tracking certification applications — customers, their
+applications and items, and the normative documents (with lab tests) items are
+checked against. It has cookie-based session authentication and a role/permission
+model, and is built on async SQLAlchemy + PostgreSQL.
 
 - **Runtime:** Python 3.14, FastAPI, Uvicorn
 - **Database:** PostgreSQL 18 via SQLAlchemy 2 (async, `asyncpg`), migrations with Alembic
@@ -60,7 +62,7 @@ Settings are loaded by `src/core/config.py` (pydantic-settings); unknown keys ar
 ### 3. Start PostgreSQL
 
 ```bash
-docker compose up -d
+docker compose up -d      # or: make db
 ```
 
 Compose reads `DB_USER` / `DB_PASS` / `DB_NAME` from `.env` and exposes the
@@ -75,13 +77,23 @@ uv run alembic upgrade head
 Alembic takes its URL from `settings.DATABASE_URL` (see `alembic/env.py`), so the
 placeholder in `alembic.ini` is never used.
 
+### 5. Seed permissions
+
+```bash
+uv run python -m scripts.seed_permissions
+```
+
+Inserts every code from the `Permission` enum in `src/core/permissions.py` that is
+not in the `permissions` table yet (safe to re-run). Run it again whenever a new
+permission code is added.
+
 To create a new migration after changing the models:
 
 ```bash
 uv run alembic revision --autogenerate -m "describe the change"
 ```
 
-### 5. Run the API
+### 6. Run the API
 
 ```bash
 make web
@@ -101,16 +113,66 @@ uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 All routes are mounted under `/api/v1`.
 
+### Users
+
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/v1/users` | Create a user; the generated username and password are returned once |
-| `GET` | `/api/v1/users` | List users |
-| `GET` | `/api/v1/users/{id}` | User detail, including roles and their permissions |
+| `POST` | `/api/v1/users` | Create a user for a customer; the generated username and password are returned once |
+| `GET` | `/api/v1/users` | List users; filter with `?customer_id=` and/or `?position=` |
+| `GET` | `/api/v1/users/{id}` | User detail, including the customer, roles and their permissions |
 | `POST` | `/api/v1/users/login` | Log in and receive the session cookie |
 
 Usernames are derived from the name fields (`first-last[-patronymic]`, normalized
 to lowercase ASCII) and the initial password is randomly generated — see
-`src/core/security.py`.
+`src/core/security.py`. Every user belongs to a customer (`customer_id`) and has a
+`position`: `head`, `deputy_head`, `specialist` (default), `independent_exprt`,
+`manager` or `customer`.
+
+### Roles and permissions
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/roles` | Create a role with a list of permission ids |
+| `GET` | `/api/v1/roles` | List roles with their permissions |
+| `PUT` | `/api/v1/roles/{id}` | Update a role's name, description and permissions |
+| `GET` | `/api/v1/permissions` | List permissions (populated by the seed script) |
+
+Permission codes follow `<resource>:<action>` (e.g. `application:create`) for the
+`user`, `role`, `customer` and `application` resources.
+
+### Customers
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/customers` | Create a customer (names are unique; duplicates return `409`) |
+| `GET` | `/api/v1/customers` | List customers; filter by name with `?name=` |
+| `GET` | `/api/v1/customers/{id}` | Customer detail |
+| `PUT` | `/api/v1/customers/{id}` | Rename a customer |
+| `DELETE` | `/api/v1/customers/{id}` | Delete a customer — cascades to its users and applications |
+
+### Applications
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/applications` | Create an application with its items and submitters |
+| `GET` | `/api/v1/applications` | List applications; filter with `?customer_id=` |
+| `GET` | `/api/v1/applications/{id}` | Application detail, including customer, submitters and items |
+| `PUT` | `/api/v1/applications/{id}` | Update application fields and its submitter list |
+| `DELETE` | `/api/v1/applications/{id}` | Delete an application and its items |
+
+On create, `items` must contain exactly `qty` entries (one per preparation, each
+with a `name`). Submitters are given as `[{"id": "<user id>"}]`; unknown user ids
+are silently skipped. `PUT` replaces the submitter set but does not touch items.
+
+### Norm documents
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/norm-documents` | Create a normative document together with its lab tests |
+
+`expiry_date` (optional) must not be earlier than `approved_date`, and lab test
+names must be unique within a document. Each lab test has a `name`, a `method`
+and a `lab_type` of `own` or `subcontracted`.
 
 ## Tests
 
@@ -154,9 +216,11 @@ Ruff handles linting (with import sorting) and formatting; `alembic/` is exclude
 │   └── versions/                # Migration scripts
 ├── alembic.ini
 ├── docker-compose.yaml          # Local PostgreSQL 18 service
-├── Makefile                     # web / test / test-cov shortcuts
+├── Makefile                     # web / test / test-cov / db shortcuts
 ├── pyproject.toml               # Dependencies and pytest configuration
 ├── uv.lock
+├── scripts/
+│   └── seed_permissions.py      # Inserts missing Permission rows
 ├── src/
 │   ├── main.py                  # FastAPI app; mounts the /api router
 │   ├── core/
@@ -167,29 +231,41 @@ Ruff handles linting (with import sorting) and formatting; `alembic/` is exclude
 │   │   ├── base.py              # Declarative Base + BaseModel (uuid7 id, timestamps)
 │   │   └── session.py           # Async engine, sessionmaker, SessionDep
 │   ├── models/                  # SQLAlchemy models
-│   │   ├── user.py              # User
+│   │   ├── user.py              # User + UserPosition enum
 │   │   ├── role.py              # Role + user_roles / role_permissions tables
 │   │   ├── permission.py        # Permission
-│   │   └── session.py           # UserSession
-│   ├── repositories/            # Data access (plain SQLAlchemy statements)
-│   │   ├── user.py
-│   │   └── session.py
-│   ├── schemas/                 # Pydantic request/response models
-│   │   └── user.py
-│   ├── services/                # Business logic, HTTP error mapping
-│   │   ├── user.py
-│   │   └── session.py
+│   │   ├── session.py           # UserSession
+│   │   ├── customer.py          # Customer
+│   │   ├── application.py       # Application + submissions (user ↔ application) table
+│   │   ├── item.py              # Item (application line) + SeedMethod enum
+│   │   └── norm_document.py     # NormDocument, LabTest + LabType enum
+│   ├── repositories/            # Data access (plain SQLAlchemy statements), one module per model
+│   ├── schemas/                 # Pydantic request/response models, one module per resource
+│   ├── services/                # Business logic, HTTP error mapping, one module per resource
 │   └── router/
 │       ├── __init__.py          # /api prefix
 │       └── v1/
-│           ├── __init__.py      # /v1 prefix
-│           └── users.py         # /users endpoints
+│           ├── __init__.py      # /v1 prefix, includes the routers below
+│           ├── users.py         # /users
+│           ├── roles.py         # /roles
+│           ├── permissions.py   # /permissions
+│           ├── customers.py     # /customers
+│           ├── applications.py  # /applications
+│           └── norm_documents.py  # /norm-documents
 └── tests/
     ├── conftest.py              # Test DB, transactional session, HTTP client fixtures
-    ├── factories.py             # factory_boy factories for User/Role/Permission
+    ├── factories.py             # factory_boy factories for the models
     ├── api/v1/                  # Endpoint tests
     └── unit/                    # Unit tests (security helpers)
 ```
+
+### Data model
+
+- A **customer** has many **users** and **applications**; deleting a customer cascades to both.
+- An **application** has many **items** and many submitting **users** (via the `submissions` table, which also stores `is_approved` / `approved_at`).
+- An **item** optionally references a **norm document** (`SET NULL` on delete) and carries certification/monitoring fields (producer, TN VED code, series, seed method, certificate number, …).
+- A **norm document** has many **lab tests**; test names are unique per document.
+- **Users** get **roles**, and roles get **permissions**, through `user_roles` / `role_permissions`.
 
 ### Layering
 
