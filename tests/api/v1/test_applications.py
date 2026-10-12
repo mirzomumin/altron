@@ -6,9 +6,14 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import Application, Customer
+from src.models import Application, Customer, Item
 from src.models.application import submissions
-from tests.factories import ApplicationFactory, CustomerFactory, UserFactory
+from tests.factories import (
+    ApplicationFactory,
+    CustomerFactory,
+    ItemFactory,
+    UserFactory,
+)
 
 URL = "/api/v1/applications"
 
@@ -24,7 +29,8 @@ def _payload(customer: Customer, **overrides) -> dict:
         "number": "A-2026-001",
         "customer_id": str(customer.id),
         "qty": 3,
-        "received_at": "2026-10-01",
+        "received_date": "2026-10-01",
+        "items": [{"name": "Aspirin"}, {"name": "Ibuprofen"}, {"name": "Paracetamol"}],
         **overrides,
     }
 
@@ -49,9 +55,51 @@ async def test_create_returns_the_application(
     assert body["cid"] == 101
     assert body["number"] == "A-2026-001"
     assert body["qty"] == 3
-    assert body["received_at"] == "2026-10-01"
+    assert body["received_date"] == "2026-10-01"
     assert body["customer"] == {"id": str(customer.id), "name": "Acme"}
     assert body["submitters"] == []
+    assert [item["name"] for item in body["items"]] == [
+        "Aspirin",
+        "Ibuprofen",
+        "Paracetamol",
+    ]
+
+
+async def test_create_persists_items_with_only_name_set(
+    client: AsyncClient, db: AsyncSession, customer: Customer
+) -> None:
+    response = await client.post(URL, json=_payload(customer))
+
+    assert response.status_code == 200
+    result = await db.execute(
+        select(Item).where(Item.application_id == response.json()["id"])
+    )
+    items = result.scalars().all()
+    assert sorted(item.name for item in items) == [
+        "Aspirin",
+        "Ibuprofen",
+        "Paracetamol",
+    ]
+    assert all(item.norm_document_id is None for item in items)
+    assert all(item.producer is None for item in items)
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        pytest.param([{"name": "Aspirin"}], id="fewer-than-qty"),
+        pytest.param([{"name": f"Item {n}"} for n in range(4)], id="more-than-qty"),
+        pytest.param([], id="empty"),
+    ],
+)
+async def test_create_rejects_items_count_not_matching_qty(
+    client: AsyncClient, db: AsyncSession, customer: Customer, items: list
+) -> None:
+    response = await client.post(URL, json=_payload(customer, items=items))
+
+    assert response.status_code == 422
+    assert "must equal qty (3)" in response.text
+    assert (await db.execute(select(Application))).first() is None
 
 
 async def test_create_attaches_submitters_and_ignores_unknown_ones(
@@ -82,7 +130,8 @@ async def test_create_returns_404_for_unknown_customer(client: AsyncClient) -> N
             "number": "A-1",
             "customer_id": str(uuid4()),
             "qty": 1,
-            "received_at": "2026-10-01",
+            "received_date": "2026-10-01",
+            "items": [{"name": "Aspirin"}],
         },
     )
 
@@ -97,8 +146,10 @@ async def test_create_returns_404_for_unknown_customer(client: AsyncClient) -> N
         pytest.param({"number": ""}, id="blank-number"),
         pytest.param({"qty": 0}, id="zero-qty"),
         pytest.param({"qty": 40000}, id="qty-overflows-smallint"),
-        pytest.param({"received_at": "not-a-date"}, id="malformed-date"),
+        pytest.param({"received_date": "not-a-date"}, id="malformed-date"),
         pytest.param({"cid": None}, id="null-cid"),
+        pytest.param({"items": [{"name": ""}] * 3}, id="blank-item-name"),
+        pytest.param({"items": [{}] * 3}, id="missing-item-name"),
     ],
 )
 async def test_create_rejects_invalid_payload(
@@ -114,8 +165,8 @@ async def test_list_returns_newest_first_with_customer(
     client: AsyncClient,
     application_factory: type[ApplicationFactory],
 ) -> None:
-    await application_factory.create(number="old", received_at=date(2026, 1, 1))
-    await application_factory.create(number="new", received_at=date(2026, 5, 1))
+    await application_factory.create(number="old", received_date=date(2026, 1, 1))
+    await application_factory.create(number="new", received_date=date(2026, 5, 1))
 
     response = await client.get(URL)
 
@@ -160,6 +211,24 @@ async def test_detail_includes_submitters(
     assert submitter["position"] == "specialist"
 
 
+async def test_detail_includes_items(
+    client: AsyncClient,
+    application_factory: type[ApplicationFactory],
+    item_factory: type[ItemFactory],
+) -> None:
+    application = await application_factory.create(qty=2)
+    first = await item_factory.create(name="Aspirin", application=application)
+    second = await item_factory.create(name="Ibuprofen", application=application)
+    await item_factory.create(name="Other application's item")
+
+    response = await client.get(f"{URL}/{application.id}")
+
+    assert response.status_code == 200
+    assert sorted(
+        (item["id"], item["name"]) for item in response.json()["items"]
+    ) == sorted([(str(first.id), "Aspirin"), (str(second.id), "Ibuprofen")])
+
+
 async def test_detail_returns_404_for_unknown_id(client: AsyncClient) -> None:
     response = await client.get(f"{URL}/{uuid4()}")
 
@@ -197,6 +266,29 @@ async def test_update_changes_fields_and_syncs_submitters(
     assert await _stored_submitter_ids(db, application.id) == {kept.id, added.id}
 
 
+async def test_update_leaves_items_untouched(
+    client: AsyncClient,
+    db: AsyncSession,
+    customer: Customer,
+    application_factory: type[ApplicationFactory],
+    item_factory: type[ItemFactory],
+) -> None:
+    application = await application_factory.create()
+    item = await item_factory.create(name="Aspirin", application=application)
+
+    response = await client.put(
+        f"{URL}/{application.id}",
+        json=_payload(customer, items=[{"name": "Ignored"}]),
+    )
+
+    assert response.status_code == 200
+    assert [i["name"] for i in response.json()["items"]] == ["Aspirin"]
+    result = await db.execute(
+        select(Item.id).where(Item.application_id == application.id)
+    )
+    assert result.scalars().all() == [item.id]
+
+
 async def test_update_returns_404_for_unknown_customer(
     client: AsyncClient,
     application_factory: type[ApplicationFactory],
@@ -210,7 +302,7 @@ async def test_update_returns_404_for_unknown_customer(
             "number": "A-1",
             "customer_id": str(uuid4()),
             "qty": 1,
-            "received_at": "2026-10-01",
+            "received_date": "2026-10-01",
         },
     )
 
@@ -242,6 +334,24 @@ async def test_delete_removes_application_and_its_submissions(
     db.expunge_all()
     assert await db.get(Application, application.id) is None
     assert await _stored_submitter_ids(db, application.id) == set()
+
+
+async def test_delete_removes_application_items(
+    client: AsyncClient,
+    db: AsyncSession,
+    application_factory: type[ApplicationFactory],
+    item_factory: type[ItemFactory],
+) -> None:
+    application = await application_factory.create()
+    item = await item_factory.create(application=application)
+    other = await item_factory.create()
+
+    response = await client.delete(f"{URL}/{application.id}")
+
+    assert response.status_code == 204
+    db.expunge_all()
+    assert await db.get(Item, item.id) is None
+    assert await db.get(Item, other.id) is not None
 
 
 async def test_delete_returns_404_for_unknown_id(client: AsyncClient) -> None:
