@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 51cddd23ed70
+Revision ID: b1bdefb2ea26
 Revises: 
-Create Date: 2026-10-12 02:03:04.195137
+Create Date: 2026-10-12 13:51:10.530628
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '51cddd23ed70'
+revision: str = 'b1bdefb2ea26'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -127,8 +127,7 @@ def upgrade() -> None:
     sa.Column('seed_method', sa.Enum('STERILIZATION', 'MICROBIOLOGY', name='seed_method'), nullable=True),
     sa.Column('seeded_at', sa.DateTime(), nullable=True),
     sa.Column('issue_date', sa.Date(), nullable=True),
-    sa.Column('planned_protocol_date', sa.DateTime(), nullable=True),
-    sa.Column('actual_protocol_date', sa.DateTime(), nullable=True),
+    sa.Column('plan_date', sa.DateTime(), nullable=True),
     sa.Column('note', sa.String(length=255), nullable=True),
     sa.Column('cert_number', sa.String(), nullable=True),
     sa.Column('cert_issue_date', sa.Date(), nullable=True),
@@ -210,9 +209,3 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_customers_name'), table_name='customers')
     op.drop_table('customers')
     # ### end Alembic commands ###
-
-    # Alembic does not drop Postgres enum types created implicitly by create_table
-    bind = op.get_bind()
-    sa.Enum(name='seed_method').drop(bind, checkfirst=True)
-    sa.Enum(name='user_position').drop(bind, checkfirst=True)
-    sa.Enum(name='lab_type').drop(bind, checkfirst=True)

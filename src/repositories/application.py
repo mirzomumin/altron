@@ -16,6 +16,7 @@ class ApplicationRepository:
             .options(
                 selectinload(Application.customer),
                 selectinload(Application.submitters),
+                selectinload(Application.items),
             )
             .where(Application.id == id)
         )

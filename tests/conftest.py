@@ -20,6 +20,8 @@ from src.main import app
 from tests.factories import (
     ApplicationFactory,
     CustomerFactory,
+    ItemFactory,
+    NormDocumentFactory,
     PermissionFactory,
     RoleFactory,
     UserFactory,
@@ -117,6 +119,8 @@ def _bound_factories(db: AsyncSession) -> None:
     for factory_class in (
         ApplicationFactory,
         CustomerFactory,
+        ItemFactory,
+        NormDocumentFactory,
         PermissionFactory,
         RoleFactory,
         UserFactory,
@@ -147,3 +151,13 @@ def customer_factory(_bound_factories: None) -> type[CustomerFactory]:
 @pytest.fixture
 def application_factory(_bound_factories: None) -> type[ApplicationFactory]:
     return ApplicationFactory
+
+
+@pytest.fixture
+def norm_document_factory(_bound_factories: None) -> type[NormDocumentFactory]:
+    return NormDocumentFactory
+
+
+@pytest.fixture
+def item_factory(_bound_factories: None) -> type[ItemFactory]:
+    return ItemFactory

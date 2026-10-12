@@ -70,15 +70,14 @@ class Item(BaseModel):
     )
     seeded_at: Mapped[datetime | None]
     issue_date: Mapped[date | None]
-    planned_protocol_date: Mapped[datetime | None]
-    actual_protocol_date: Mapped[datetime | None]
+    plan_date: Mapped[datetime | None]  # план протокола
     note: Mapped[str | None] = mapped_column(String(255))
 
     cert_number: Mapped[str | None]
     cert_issue_date: Mapped[date | None]
 
-    norm_document: Mapped[NormDocument] = relationship(
-        back_populates="lab_tests",
+    norm_document: Mapped[NormDocument | None] = relationship(
+        back_populates="items",
         lazy="raise_on_sql",
     )
     application: Mapped[Application] = relationship(

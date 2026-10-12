@@ -6,8 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.application import Application
 from src.models.user import User
 from src.repositories.application import ApplicationRepository
+from src.repositories.item import ItemRepository
 from src.repositories.user import UserRepository
 from src.schemas.application import (
+    ApplicationRequest,
     CreateApplicationRequest,
     UpdateApplicationRequest,
 )
@@ -17,7 +19,7 @@ from src.services.customer import CustomerService
 class ApplicationService:
     @staticmethod
     async def _get_submitter_ids(
-        data: CreateApplicationRequest,
+        data: ApplicationRequest,
         db: AsyncSession,
     ) -> set[UUID]:
         requested_ids = [submitter.id for submitter in data.submitters]
@@ -35,10 +37,17 @@ class ApplicationService:
         await CustomerService.get(data.customer_id, db)
         submitter_ids = await ApplicationService._get_submitter_ids(data, db)
 
-        application_data = data.model_dump(exclude={"submitters"})
+        application_data = data.model_dump(exclude={"submitters", "items"})
         application = await ApplicationRepository.add(application_data, db)
         if submitter_ids:
             await ApplicationRepository.add_submitters(application, submitter_ids, db)
+        await ItemRepository.bulk_add(
+            [
+                {"application_id": application.id, "name": item.name}
+                for item in data.items
+            ],
+            db,
+        )
 
         await db.commit()
         return await ApplicationRepository.get_by_id(application.id, db)
